@@ -223,7 +223,7 @@ const QUOTES = {
   "Klipspringer":   '"You see I\'m in rather an awkward position."',
 };
 
-let ably, channel, isPlayer1 = false, roomCode = "", myChar = null, oppChar = null;
+let ably, channel, isPlayer1 = false, roomCode = "", myChar = null, oppChar = null, myClientId = "";
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -242,9 +242,10 @@ function makeQR(url) {
 }
 
 function connectAbly(code, asP1) {
-  ably = new Ably.Realtime({ key:ABLY_API_KEY, clientId: asP1 ? "p1" : "p2" });
+  myClientId = asP1 ? "p1" : "p2";
+  ably = new Ably.Realtime({ key:ABLY_API_KEY, clientId: myClientId });
   channel = ably.channels.get(`gatsby-${code}`);
-  channel.subscribe(handleMessage);
+  channel.subscribe(msg => { if (msg.clientId !== myClientId) handleMessage(msg); });
   if (!asP1) {
     channel.attach(() => channel.publish('player-joined', { who:'p2' }));
   }
