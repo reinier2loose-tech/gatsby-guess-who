@@ -120,7 +120,7 @@ button:disabled { opacity: .4; cursor: not-allowed; background: #fff; color: #11
 <div id="app">
 
   <div class="site-header">
-    <h1>The Great Gatsby -- Guess Who?<small>a very serious literary party game</small></h1>
+    <h1>The Great Gatsby -- Guess Who?</h1>
   </div>
 
   <!-- LANDING -->
@@ -169,18 +169,13 @@ button:disabled { opacity: .4; cursor: not-allowed; background: #fff; color: #11
     </div>
 
     <div class="game-bottom">
-      <div id="askArea">
-        <div class="input-row">
-          <input type="text" id="questionInput" placeholder='ask a question, or: I GUESS: Name'
-                 onkeydown="if(event.key==='Enter')sendQuestion()"/>
-          <button class="btn-send" id="sendBtn" onclick="sendQuestion()">Send</button>
-        </div>
-        <div class="hint">type "I GUESS: Jay Gatsby" to make your final guess</div>
-      </div>
-      <div id="answerArea" style="display:none;">
+      <div id="answerArea">
         <div class="answer-row">
           <button class="btn-yes" onclick="sendAnswer('YES')">YES</button>
           <button class="btn-no"  onclick="sendAnswer('NO')">NO</button>
+        </div>
+        <div style="margin-top:8px;">
+          <button class="btn-block btn-dark" id="guessBtn" onclick="makeGuess()">make a guess</button>
         </div>
       </div>
     </div>
@@ -333,43 +328,42 @@ function buildElimGrid() {
 
 function updateTurnUI(canAsk, mustAnswer) {
   const banner = document.getElementById('turnBanner');
-  const askArea = document.getElementById('askArea');
   const answerArea = document.getElementById('answerArea');
-  const qInput = document.getElementById('questionInput');
-  const sendBtn = document.getElementById('sendBtn');
+  const guessBtn = document.getElementById('guessBtn');
   if (mustAnswer) {
     banner.textContent = 'answer your opponent'; banner.className = 'turn-banner my-turn';
-    askArea.style.display = 'none'; answerArea.style.display = 'block';
+    answerArea.style.display = 'block';
+    guessBtn.style.display = 'none';
   } else if (canAsk) {
     banner.textContent = 'your turn -- ask a question'; banner.className = 'turn-banner my-turn';
-    askArea.style.display = 'block'; answerArea.style.display = 'none';
-    qInput.disabled = false; sendBtn.disabled = false; qInput.focus();
+    answerArea.style.display = 'block';
+    // Show only the guess button on your turn
+    document.querySelector('.answer-row').style.display = 'none';
+    guessBtn.style.display = 'block';
   } else {
     banner.textContent = "opponent's turn"; banner.className = 'turn-banner opp-turn';
-    askArea.style.display = 'block'; answerArea.style.display = 'none';
-    qInput.disabled = true; sendBtn.disabled = true;
+    answerArea.style.display = 'none';
   }
 }
 
+function makeGuess() {
+  const name = prompt("Who do you think they are? Type the full character name:");
+  if (!name) return;
+  const g = name.trim();
+  channel.publish('guess', { character: g });
+  const correct = g.toLowerCase() === oppChar.name.toLowerCase();
+  endGame(correct, correct ? 'correct! you got them.' : `nope. they were ${oppChar.name}.`);
+}
+
 function sendQuestion() {
-  const input = document.getElementById('questionInput');
-  const text = input.value.trim();
-  if (!text || !myTurn) return;
-  const guessMatch = text.match(/^I GUESS:\s*(.+)$/i);
-  if (guessMatch) {
-    const g = guessMatch[1].trim();
-    channel.publish('guess', { character: g });
-    const correct = g.toLowerCase() === oppChar.name.toLowerCase();
-    endGame(correct, correct ? 'correct! you got them.' : `nope. they were ${oppChar.name}.`);
-    input.value = ''; return;
-  }
-  channel.publish('question', { text });
-  input.value = ''; myTurn = false; updateTurnUI(false, false);
+  // no-op, kept for ably message handling
 }
 
 function sendAnswer(ans) {
   channel.publish('answer', { text: ans });
-  myTurn = false; updateTurnUI(false, false);
+  myTurn = false;
+  document.querySelector('.answer-row').style.display = 'flex';
+  updateTurnUI(false, false);
 }
 
 function endGame(won, msg) {
