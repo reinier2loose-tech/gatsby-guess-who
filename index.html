@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>The Great Gatsby — Guess Who?</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime&display=swap" rel="stylesheet"/>
 <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -205,19 +205,8 @@ button { font-family:'Playfair Display',serif; font-size:.9rem; letter-spacing:.
       </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="tab-bar">
-      <button class="tab-btn active" onclick="switchTab('chat')" id="tab-chat">💬 Chat Log</button>
-      <button class="tab-btn" onclick="switchTab('elim')" id="tab-elim">🃏 Eliminate</button>
-    </div>
-
-    <!-- Chat panel -->
-    <div class="tab-panel active" id="panel-chat">
-      <div class="game-log" id="gameLog"></div>
-    </div>
-
-    <!-- Eliminate panel -->
-    <div class="tab-panel" id="panel-elim">
+    <!-- Eliminate panel (always visible) -->
+    <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
       <div class="elim-panel">
         <p class="elim-hint">Tap a card to eliminate / restore it</p>
         <div class="elim-grid" id="elimGrid"></div>
@@ -429,7 +418,7 @@ function buildElimGrid() {
   const grid = document.getElementById('elimGrid');
   grid.innerHTML = '';
   CHARACTERS.forEach(ch => {
-    if (ch.name === myChar.name) return; // skip own card
+    if (myChar && ch.name === myChar.name) return; // skip own card
     const card = document.createElement('div');
     card.className = 'elim-card';
     card.id = 'ec-' + ch.name.replace(/\s/g,'_');
