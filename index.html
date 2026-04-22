@@ -63,9 +63,6 @@ button:disabled { opacity: .4; cursor: not-allowed; background: #fff; color: #11
 #game { padding: 0; gap: 0; overflow: hidden; height: 100vh; }
 
 .game-top { padding: 10px 14px 8px; border-bottom: 2px solid #111; background: #f4f1e8; flex-shrink: 0; }
-.turn-banner { text-align: center; font-size: .8rem; padding: 4px 10px; margin-bottom: 8px; border: 2px solid #111; font-family: 'Special Elite', cursive; letter-spacing: .05em; }
-.turn-banner.my-turn  { background: #111; color: #fff; }
-.turn-banner.opp-turn { background: #fff; color: #555; border-style: dashed; }
 
 .my-card { border: 2px solid #111; padding: 8px 12px; background: #fff; text-align: center; }
 .my-card-name { font-family: 'Special Elite', cursive; font-size: 1.05rem; color: #8B1A1A; margin-bottom: 4px; }
@@ -93,11 +90,6 @@ button:disabled { opacity: .4; cursor: not-allowed; background: #fff; color: #11
 
 /* Bottom */
 .game-bottom { padding: 9px 14px 10px; background: #fff; border-top: 2px solid #111; flex-shrink: 0; }
-.input-row { display: flex; gap: 6px; align-items: center; }
-.input-row input { margin-bottom: 0; flex: 1; }
-.btn-send { font-weight: bold; padding: 9px 13px; white-space: nowrap; flex-shrink: 0; background: #111; color: #fff; border-color: #111; }
-.btn-send:hover { background: #333; }
-.btn-send:disabled { opacity: .35; background: #111; color: #fff; }
 .answer-row { display: flex; gap: 8px; }
 .hint { font-size: .67rem; color: #888; text-align: center; margin-top: 5px; font-style: italic; }
 
@@ -156,7 +148,6 @@ button:disabled { opacity: .4; cursor: not-allowed; background: #fff; color: #11
   <!-- GAME -->
   <div id="game" class="screen">
     <div class="game-top">
-      <div class="turn-banner" id="turnBanner">Your Turn</div>
       <div class="my-card">
         <div class="my-card-name" id="myCharName">—</div>
         <div class="my-card-traits" id="myCharTraits"></div>
@@ -170,11 +161,13 @@ button:disabled { opacity: .4; cursor: not-allowed; background: #fff; color: #11
 
     <div class="game-bottom">
       <div id="answerArea">
-        <div class="answer-row">
+        <!-- Shown when opponent asked a question -->
+        <div class="answer-row" id="yesNoRow" style="display:none;">
           <button class="btn-yes" onclick="sendAnswer('YES')">YES</button>
           <button class="btn-no"  onclick="sendAnswer('NO')">NO</button>
         </div>
-        <div style="margin-top:8px;">
+        <!-- Always visible: make a guess -->
+        <div style="margin-top:0;">
           <button class="btn-block btn-dark" id="guessBtn" onclick="makeGuess()">make a guess</button>
         </div>
       </div>
@@ -230,8 +223,7 @@ const QUOTES = {
   "Klipspringer":   '"You see I\'m in rather an awkward position."',
 };
 
-let ably, channel, isPlayer1 = false, roomCode = "", myChar = null, oppChar = null, myTurn = false;
-let eliminated = new Set();
+let ably, channel, isPlayer1 = false, roomCode = "", myChar = null, oppChar = null;
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -260,22 +252,36 @@ function connectAbly(code, asP1) {
 
 function handleMessage(msg) {
   const { name, data } = msg;
+
   if (name === 'player-joined' && isPlayer1) {
     const shuffled = [...CHARACTERS].sort(() => Math.random() - 0.5);
     channel.publish('character-assigned', { p1: shuffled[0].name, p2: shuffled[1].name });
   }
+
   if (name === 'character-assigned') {
     myChar  = CHARACTERS.find(c => c.name === (isPlayer1 ? data.p1 : data.p2));
     oppChar = CHARACTERS.find(c => c.name === (isPlayer1 ? data.p2 : data.p1));
-    myTurn  = isPlayer1;
     startGame();
   }
-  if (name === 'question') updateTurnUI(false, true);
-  if (name === 'answer') { myTurn = true; updateTurnUI(true, false); }
+
+  // Opponent asked a question — show YES/NO so we can answer
+  if (name === 'question') {
+    showYesNo(true);
+  }
+
+  // Opponent answered our question — hide YES/NO
+  if (name === 'answer') {
+    showYesNo(false);
+  }
+
   if (name === 'guess') {
     const correct = data.character.toLowerCase() === myChar.name.toLowerCase();
     endGame(!correct, `Opponent guessed "${data.character}" — ${correct ? 'correct! you lose.' : 'wrong! you win!'}`);
   }
+}
+
+function showYesNo(visible) {
+  document.getElementById('yesNoRow').style.display = visible ? 'flex' : 'none';
 }
 
 function createRoom() {
@@ -307,10 +313,15 @@ function startGame() {
   document.getElementById('myCharName').textContent = myChar.name;
   const tEl = document.getElementById('myCharTraits');
   tEl.innerHTML = '';
-  myChar.traits.forEach(t => { const s = document.createElement('span'); s.className='trait'; s.textContent=t; tEl.appendChild(s); });
+  myChar.traits.forEach(t => {
+    const s = document.createElement('span');
+    s.className = 'trait';
+    s.textContent = t;
+    tEl.appendChild(s);
+  });
   buildElimGrid();
+  showYesNo(false);
   showScreen('game');
-  updateTurnUI(myTurn, false);
 }
 
 function buildElimGrid() {
@@ -321,29 +332,9 @@ function buildElimGrid() {
     const card = document.createElement('div');
     card.className = 'elim-card';
     card.innerHTML = `<div class="elim-name">${ch.name}</div><div class="elim-traits">${ch.traits.map(t=>`<span class="elim-trait">${t}</span>`).join('')}</div>`;
-    card.addEventListener('click', () => { card.classList.toggle('out'); });
+    card.addEventListener('click', () => card.classList.toggle('out'));
     grid.appendChild(card);
   });
-}
-
-function updateTurnUI(canAsk, mustAnswer) {
-  const banner = document.getElementById('turnBanner');
-  const answerArea = document.getElementById('answerArea');
-  const guessBtn = document.getElementById('guessBtn');
-  if (mustAnswer) {
-    banner.textContent = 'answer your opponent'; banner.className = 'turn-banner my-turn';
-    answerArea.style.display = 'block';
-    guessBtn.style.display = 'none';
-  } else if (canAsk) {
-    banner.textContent = 'your turn -- ask a question'; banner.className = 'turn-banner my-turn';
-    answerArea.style.display = 'block';
-    // Show only the guess button on your turn
-    document.querySelector('.answer-row').style.display = 'none';
-    guessBtn.style.display = 'block';
-  } else {
-    banner.textContent = "opponent's turn"; banner.className = 'turn-banner opp-turn';
-    answerArea.style.display = 'none';
-  }
 }
 
 function makeGuess() {
@@ -355,15 +346,9 @@ function makeGuess() {
   endGame(correct, correct ? 'correct! you got them.' : `nope. they were ${oppChar.name}.`);
 }
 
-function sendQuestion() {
-  // no-op, kept for ably message handling
-}
-
 function sendAnswer(ans) {
   channel.publish('answer', { text: ans });
-  myTurn = false;
-  document.querySelector('.answer-row').style.display = 'flex';
-  updateTurnUI(false, false);
+  showYesNo(false);
 }
 
 function endGame(won, msg) {
