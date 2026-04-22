@@ -320,9 +320,11 @@ function connectAbly(code, asP1) {
   ably = new Ably.Realtime({ key:ABLY_API_KEY, clientId: asP1 ? "p1" : "p2" });
   channel = ably.channels.get(`gatsby-${code}`);
   channel.subscribe(handleMessage);
-  ably.connection.on('connected', () => {
-    if (!asP1) channel.publish('player-joined', { who:'p2' });
-  });
+  if (!asP1) {
+    channel.attach(() => {
+      channel.publish('player-joined', { who:'p2' });
+    });
+  }
 }
 
 function handleMessage(msg) {
