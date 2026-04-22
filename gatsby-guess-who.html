@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Great Gatsby — Guess Who?</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy:  #1A1A2E;
+    --gold:  #C9A84C;
+    --cream: #F5EDD6;
+    --red:   #8B1A1A;
+    --gold-light: #e8c97a;
+    --navy-light: #252545;
+  }
+  html, body {
+    height: 100%;
+    background: var(--navy);
+    color: var(--cream);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+  }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Art Deco Header ── */
+  .deco-header {
+    text-align: center;
+    padding: 24px 16px 16px;
+    position: relative;
+    background: linear-gradient(180deg, #0d0d1f 0%, var(--navy) 100%);
+  }
+  .deco-header::before,
+  .deco-header::after {
+    content: '';
+    display: block;
+    height: 3px;
+    background: repeating-linear-gradient(
+      90deg, var(--gold) 0px, var(--gold) 8px,
+      transparent 8px, transparent 12px,
+      var(--gold) 12px, var(--gold) 14px,
+      transparent 14px, transparent 20px
+    );
+    margin: 6px 0;
+  }
+  .deco-diamonds {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0 8px;
+  }
+  .deco-diamonds span {
+    width: 8px; height: 8px;
+    background: var(--gold);
+    transform: rotate(45deg);
+    display: inline-block;
+  }
+  .deco-diamonds span:nth-child(2) { width: 12px; height: 12px; }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-shadow: 0 0 20px rgba(201,168,76,0.4);
+  }
+  h1 span { display: block; font-size: 1rem; font-weight: 400; font-style: italic; color: var(--cream); }
+  h2 {
+    font-family: 'Playfair Display', serif;
+    color: var(--gold);
+    font-size: 1.2rem;
+  }
+
+  /* ── Screens ── */
+  .screen { display: none; flex: 1; flex-direction: column; padding: 20px 16px; }
+  .screen.active { display: flex; }
+
+  /* ── Landing ── */
+  #landing { gap: 24px; align-items: center; justify-content: center; }
+  .deco-divider {
+    width: 100%;
+    text-align: center;
+    color: var(--gold);
+    font-size: 0.8rem;
+    letter-spacing: 0.3em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .deco-divider::before, .deco-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .card {
+    background: var(--navy-light);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    padding: 20px;
+    width: 100%;
+  }
+  .card p { font-size: 0.95rem; margin-bottom: 12px; color: var(--cream); opacity: 0.85; }
+  input[type="text"] {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--gold);
+    border-radius: 2px;
+    color: var(--cream);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 10px;
+  }
+  input[type="text"]::placeholder { color: rgba(245,237,214,0.4); }
+  input[type="text"]:focus { border-color: var(--gold-light); }
+  button {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--gold);
+    color: var(--navy);
+    width: 100%;
+    font-weight: 700;
+  }
+  .btn-primary:hover { background: var(--gold-light); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-yes { background: #2a6e2a; color: #fff; flex: 1; }
+  .btn-no  { background: var(--red);  color: #fff; flex: 1; }
+  .btn-yes:hover { background: #3a8e3a; }
+  .btn-no:hover  { background: #a02020; }
+
+  /* ── Room / Waiting ── */
+  #waiting { gap: 16px; align-items: center; justify-content: center; text-align: center; }
+  .room-code {
+    font-family: 'Playfair Display', serif;
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 30px rgba(201,168,76,0.6);
+  }
+  #qrcode { background: #fff; padding: 10px; border-radius: 4px; display: inline-block; }
+  .waiting-msg { font-style: italic; opacity: 0.7; }
+
+  /* ── Game Screen ── */
+  #game {
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+    height: 100vh;
+  }
+  .game-top {
+    padding: 12px 16px;
+    background: linear-gradient(180deg, #0d0d1f 0%, var(--navy) 100%);
+    border-bottom: 1px solid var(--gold);
+    flex-shrink: 0;
+  }
+  .turn-banner {
+    text-align: center;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 2px;
+    margin-bottom: 8px;
+    font-family: 'Playfair Display', serif;
+  }
+  .turn-banner.my-turn  { background: var(--gold); color: var(--navy); }
+  .turn-banner.opp-turn { background: var(--navy-light); color: var(--gold); border: 1px solid var(--gold); }
+
+  /* Character Card */
+  .char-card {
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #0f0f26 0%, #1e1e3a 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .char-card::before {
+    content: '';
+    position: absolute;
+    top: 4px; left: 4px; right: 4px; bottom: 4px;
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .char-card-corner {
+    position: absolute;
+    top: 6px; left: 8px;
+    font-size: 0.55rem;
+    color: var(--gold);
+    opacity: 0.6;
+    font-family: 'Playfair Display', serif;
+  }
+  .char-card-corner.br { top: auto; left: auto; bottom: 6px; right: 8px; transform: rotate(180deg); }
+  .char-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .char-traits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+  }
+  .trait-tag {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border: 1px solid rgba(201,168,76,0.5);
+    border-radius: 2px;
+    color: var(--cream);
+    opacity: 0.8;
+    letter-spacing: 0.05em;
+  }
+
+  /* Log */
+  .game-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .game-log::-webkit-scrollbar { width: 4px; }
+  .game-log::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
+  .log-entry {
+    padding: 8px 12px;
+    border-radius: 3px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-width: 88%;
+    position: relative;
+  }
+  .log-entry.question-me {
+    background: rgba(201,168,76,0.12);
+    border-left: 3px solid var(--gold);
+    align-self: flex-end;
+  }
+  .log-entry.question-opp {
+    background: rgba(139,26,26,0.15);
+    border-left: 3px solid var(--red);
+    align-self: flex-start;
+  }
+  .log-entry.answer {
+    background: rgba(255,255,255,0.05);
+    border-left: 3px solid #555;
+    align-self: flex-start;
+    font-style: italic;
+    opacity: 0.85;
+  }
+  .log-entry.system {
+    align-self: center;
+    text-align: center;
+    font-size: 0.75rem;
+    opacity: 0.55;
+    letter-spacing: 0.1em;
+    max-width: 100%;
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+    padding-bottom: 6px;
+  }
+  .log-label {
+    font-size: 0.65rem;
+    font-family: 'Playfair Display', serif;
+    letter-spacing: 0.1em;
+    opacity: 0.6;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* Input Area */
+  .game-bottom {
+    padding: 10px 16px;
+    background: var(--navy-light);
+    border-top: 1px solid rgba(201,168,76,0.3);
+    flex-shrink: 0;
+  }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .input-row input { margin-bottom: 0; flex: 1; }
+  .btn-send {
+    background: var(--gold);
+    color: var(--navy);
+    font-weight: 700;
+    padding: 10px 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-send:hover { background: var(--gold-light); }
+  .btn-send:disabled { opacity: 0.35; cursor: not-allowed; }
+  .answer-row {
+    display: flex;
+    gap: 10px;
+  }
+  .hint-text {
+    font-size: 0.7rem;
+    color: var(--gold);
+    opacity: 0.6;
+    text-align: center;
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  /* ── End Screen ── */
+  #endscreen { gap: 20px; align-items: center; justify-content: center; text-align: center; }
+  .end-result {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 900;
+    text-shadow: 0 0 30px currentColor;
+  }
+  .end-result.win  { color: var(--gold); }
+  .end-result.lose { color: var(--red); }
+  .reveal-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+  }
+  .reveal-card {
+    flex: 1;
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    padding: 12px 8px;
+    background: var(--navy-light);
+    text-align: center;
+  }
+  .reveal-card .rc-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.55;
+    margin-bottom: 4px;
+  }
+  .reveal-card .rc-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .reveal-card .rc-quote {
+    font-style: italic;
+    font-size: 0.78rem;
+    opacity: 0.75;
+    line-height: 1.4;
+  }
+  .btn-play-again {
+    background: transparent;
+    border: 2px solid var(--gold);
+    color: var(--gold);
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    padding: 12px 32px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-play-again:hover { background: var(--gold); color: var(--navy); }
+
+  /* ── Utilities ── */
+  .error-msg { color: #e07070; font-size: 0.85rem; text-align: center; font-style: italic; }
+  .status-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #4caf50;
+    margin-right: 5px;
+    vertical-align: middle;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER (shared) -->
+  <div class="deco-header">
+    <div class="deco-diamonds"><span></span><span></span><span></span></div>
+    <h1>The Great Gatsby<span>— Guess Who? —</span></h1>
+    <div class="deco-diamonds"><span></span><span></span><span></span></div>
+  </div>
+
+  <!-- LANDING -->
+  <div id="landing" class="screen active">
+    <div class="card">
+      <h2 style="margin-bottom:10px;">Create a Room</h2>
+      <p>Start a new game and invite a friend to join.</p>
+      <button class="btn-primary" onclick="createRoom()">✦ Create Room ✦</button>
+    </div>
+    <div class="deco-divider">or</div>
+    <div class="card">
+      <h2 style="margin-bottom:10px;">Join a Room</h2>
+      <p>Enter the 4-letter room code your friend shared.</p>
+      <input type="text" id="joinCodeInput" placeholder="e.g. WEST" maxlength="4"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')joinRoom()"/>
+      <button class="btn-primary" onclick="joinRoom()">✦ Join Room ✦</button>
+      <div id="joinError" class="error-msg" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- WAITING -->
+  <div id="waiting" class="screen">
+    <h2 id="waitingTitle">Room Created</h2>
+    <div class="room-code" id="roomCodeDisplay"></div>
+    <p class="waiting-msg">Share this code — or scan the QR code below</p>
+    <div id="qrcode"></div>
+    <p class="waiting-msg"><span class="status-dot"></span>Waiting for your opponent…</p>
+  </div>
+
+  <!-- GAME -->
+  <div id="game" class="screen">
+    <div class="game-top">
+      <div class="turn-banner" id="turnBanner">Your Turn</div>
+      <div class="char-card" id="myCharCard">
+        <span class="char-card-corner">♦</span>
+        <div class="char-name" id="myCharName">—</div>
+        <div class="char-traits" id="myCharTraits"></div>
+        <span class="char-card-corner br">♦</span>
+      </div>
+    </div>
+    <div class="game-log" id="gameLog"></div>
+    <div class="game-bottom">
+      <div id="askArea">
+        <div class="input-row">
+          <input type="text" id="questionInput" placeholder="Ask a question… or type I GUESS: Name"
+                 onkeydown="if(event.key==='Enter')sendQuestion()"/>
+          <button class="btn-primary btn-send" id="sendBtn" onclick="sendQuestion()">Send</button>
+        </div>
+        <div class="hint-text">Tip: type "I GUESS: Jay Gatsby" to make your final guess</div>
+      </div>
+      <div id="answerArea" style="display:none;">
+        <div class="answer-row">
+          <button class="btn-yes" onclick="sendAnswer('YES')">✔ YES</button>
+          <button class="btn-no"  onclick="sendAnswer('NO')">✖ NO</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div id="endscreen" class="screen">
+    <div class="end-result" id="endResult">You Win!</div>
+    <p id="endMsg" style="font-style:italic;opacity:0.7;"></p>
+    <div class="reveal-row">
+      <div class="reveal-card">
+        <div class="rc-label">You were</div>
+        <div class="rc-name" id="revealMe"></div>
+        <div class="rc-quote" id="quoteMe"></div>
+      </div>
+      <div class="reveal-card">
+        <div class="rc-label">They were</div>
+        <div class="rc-name" id="revealOpp"></div>
+        <div class="rc-quote" id="quoteOpp"></div>
+      </div>
+    </div>
+    <button class="btn-play-again" onclick="location.href=location.pathname">✦ Play Again ✦</button>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  CONFIG — paste your Ably API key below
+// ════════════════════════════════════════════════
+const ABLY_API_KEY = "ph_Umg.B8sHIA:E6LFdNd6aXGiaHPjkxdYeuGEn9zSPXiQjXD8sqmez_4";
+
+// ════════════════════════════════════════════════
+//  CHARACTERS
+// ════════════════════════════════════════════════
+const CHARACTERS = [
+  { name:"Jay Gatsby",     traits:["new money","West Egg","deceased","romantic lead","dreamer","host"] },
+  { name:"Daisy Buchanan", traits:["old money","East Egg","alive","romantic lead","careless","married"] },
+  { name:"Tom Buchanan",   traits:["old money","East Egg","alive","antagonist","violent","married"] },
+  { name:"Nick Carraway",  traits:["no money","West Egg","alive","narrator","moral observer","single"] },
+  { name:"Jordan Baker",   traits:["old money","East Egg","alive","love interest","dishonest","athlete"] },
+  { name:"Myrtle Wilson",  traits:["no money","Valley of Ashes","deceased","romantic lead","ambitious","married"] },
+  { name:"George Wilson",  traits:["no money","Valley of Ashes","deceased","antagonist","tragic","married"] },
+  { name:"Meyer Wolfsheim",traits:["new money","NYC","alive","criminal","mentor to Gatsby"] },
+  { name:"Owl Eyes",       traits:["unknown","West Egg","alive","minor character","observer","eccentric"] },
+  { name:"Klipspringer",   traits:["new money","West Egg","alive","minor character","freeloader","cowardly"] },
+];
+
+const QUOTES = {
+  "Jay Gatsby":     '"Can\'t repeat the past? Why of course you can!"',
+  "Daisy Buchanan": '"Her voice is full of money."',
+  "Tom Buchanan":   '"I am one of the few honest people I have ever known." — (the opposite of Tom)',
+  "Nick Carraway":  '"So we beat on, boats against the current..."',
+  "Jordan Baker":   '"I hate careless people."',
+  "Myrtle Wilson":  '"I married him because I thought he was a gentleman."',
+  "George Wilson":  '"He had on a dress suit and patent leather shoes."',
+  "Meyer Wolfsheim":'"I raised him up out of nothing, right out of the gutter."',
+  "Owl Eyes":       '"He\'s a real person. Do you know that?"',
+  "Klipspringer":   '"You see I\'m in rather an awkward position."',
+};
+
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+let ably, channel;
+let isPlayer1 = false;
+let roomCode  = "";
+let myChar    = null;
+let oppChar   = null;
+let myTurn    = false; // P1 goes first
+
+// ════════════════════════════════════════════════
+//  SCREENS
+// ════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ════════════════════════════════════════════════
+//  ROOM CODE
+// ════════════════════════════════════════════════
+function genCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  return Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+// ════════════════════════════════════════════════
+//  QR CODE
+// ════════════════════════════════════════════════
+function makeQR(url) {
+  const el = document.getElementById('qrcode');
+  el.innerHTML = '';
+  new QRCode(el, { text: url, width: 140, height: 140, colorDark:"#1A1A2E", colorLight:"#ffffff" });
+}
+
+// ════════════════════════════════════════════════
+//  ABLY CONNECT
+// ════════════════════════════════════════════════
+function connectAbly(code, asP1) {
+  ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: asP1 ? "p1" : "p2" });
+  channel = ably.channels.get(`gatsby-${code}`);
+
+  channel.subscribe(handleMessage);
+
+  ably.connection.on('connected', () => {
+    if (!asP1) {
+      // P2 announces arrival
+      channel.publish('player-joined', { who: 'p2' });
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+//  MESSAGE HANDLER
+// ════════════════════════════════════════════════
+function handleMessage(msg) {
+  const { name, data } = msg;
+
+  if (name === 'player-joined' && isPlayer1) {
+    // Assign characters
+    const shuffled = [...CHARACTERS].sort(() => Math.random() - 0.5);
+    const p1char = shuffled[0];
+    const p2char = shuffled[1];
+    channel.publish('character-assigned', { p1: p1char.name, p2: p2char.name });
+  }
+
+  if (name === 'character-assigned') {
+    const p1name = data.p1, p2name = data.p2;
+    myChar  = CHARACTERS.find(c => c.name === (isPlayer1 ? p1name : p2name));
+    oppChar = CHARACTERS.find(c => c.name === (isPlayer1 ? p2name : p1name));
+    myTurn  = isPlayer1; // P1 asks first
+    startGame();
+  }
+
+  if (name === 'question') {
+    addLog(data.text, 'question-opp', 'Opponent asks');
+    // We must answer
+    myTurn = false;
+    updateTurnUI(false, true); // not my turn to ask, but my turn to answer
+  }
+
+  if (name === 'answer') {
+    addLog(data.text, 'answer', 'Answer');
+    // Now it's opponent's turn to ask → my turn to ask
+    myTurn = true;
+    updateTurnUI(true, false);
+  }
+
+  if (name === 'guess') {
+    // Opponent made a guess
+    const guessedName = data.character;
+    const correct = guessedName.toLowerCase() === myChar.name.toLowerCase();
+    // If opponent guessed correctly → I lose; if wrong → I win
+    endGame(!correct, `Your opponent guessed ${guessedName} — ${correct ? 'correct! You lose.' : 'wrong! You win!'}`);
+  }
+}
+
+// ════════════════════════════════════════════════
+//  CREATE / JOIN
+// ════════════════════════════════════════════════
+function createRoom() {
+  roomCode  = genCode();
+  isPlayer1 = true;
+  document.getElementById('roomCodeDisplay').textContent = roomCode;
+  const url = window.location.href.split('?')[0] + '?room=' + roomCode;
+  makeQR(url);
+  showScreen('waiting');
+  document.getElementById('waitingTitle').textContent = 'Room Created';
+  connectAbly(roomCode, true);
+}
+
+function joinRoom() {
+  const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if (code.length !== 4) {
+    document.getElementById('joinError').textContent = 'Please enter a 4-letter room code.';
+    return;
+  }
+  roomCode  = code;
+  isPlayer1 = false;
+  document.getElementById('roomCodeDisplay').textContent = roomCode;
+  document.getElementById('qrcode').innerHTML = '';
+  showScreen('waiting');
+  document.getElementById('waitingTitle').textContent = 'Joining Room…';
+  connectAbly(roomCode, false);
+}
+
+// Auto-join from URL param
+window.addEventListener('load', () => {
+  const params = new URLSearchParams(window.location.search);
+  const room   = params.get('room');
+  if (room && room.length === 4) {
+    document.getElementById('joinCodeInput').value = room.toUpperCase();
+    joinRoom();
+  }
+});
+
+// ════════════════════════════════════════════════
+//  GAME START
+// ════════════════════════════════════════════════
+function startGame() {
+  // Populate my card
+  document.getElementById('myCharName').textContent = myChar.name;
+  const traitsEl = document.getElementById('myCharTraits');
+  traitsEl.innerHTML = '';
+  myChar.traits.forEach(t => {
+    const tag = document.createElement('span');
+    tag.className = 'trait-tag';
+    tag.textContent = t;
+    traitsEl.appendChild(tag);
+  });
+
+  document.getElementById('gameLog').innerHTML = '';
+  addLog('The game has begun. Player 1 asks first.', 'system', '');
+  showScreen('game');
+  updateTurnUI(myTurn, false);
+}
+
+// ════════════════════════════════════════════════
+//  TURN UI
+// ════════════════════════════════════════════════
+function updateTurnUI(canAsk, mustAnswer) {
+  const banner    = document.getElementById('turnBanner');
+  const askArea   = document.getElementById('askArea');
+  const answerArea= document.getElementById('answerArea');
+  const qInput    = document.getElementById('questionInput');
+  const sendBtn   = document.getElementById('sendBtn');
+
+  if (mustAnswer) {
+    banner.textContent = '⟡ Answer Your Opponent ⟡';
+    banner.className   = 'turn-banner my-turn';
+    askArea.style.display    = 'none';
+    answerArea.style.display = 'block';
+  } else if (canAsk) {
+    banner.textContent = '✦ Your Turn — Ask a Question ✦';
+    banner.className   = 'turn-banner my-turn';
+    askArea.style.display    = 'block';
+    answerArea.style.display = 'none';
+    qInput.disabled   = false;
+    sendBtn.disabled  = false;
+    qInput.focus();
+  } else {
+    banner.textContent = '— Opponent\'s Turn —';
+    banner.className   = 'turn-banner opp-turn';
+    askArea.style.display    = 'block';
+    answerArea.style.display = 'none';
+    qInput.disabled   = true;
+    sendBtn.disabled  = true;
+  }
+}
+
+// ════════════════════════════════════════════════
+//  SEND QUESTION / GUESS
+// ════════════════════════════════════════════════
+function sendQuestion() {
+  const input = document.getElementById('questionInput');
+  const text  = input.value.trim();
+  if (!text || !myTurn) return;
+
+  // Check for guess
+  const guessMatch = text.match(/^I GUESS:\s*(.+)$/i);
+  if (guessMatch) {
+    const guessedName = guessMatch[1].trim();
+    channel.publish('guess', { character: guessedName });
+    addLog(`I GUESS: ${guessedName}`, 'question-me', 'Your guess');
+    const correct = guessedName.toLowerCase() === oppChar.name.toLowerCase();
+    endGame(correct, correct ? 'Correct! You identified their character.' : `Wrong! Their character was ${oppChar.name}.`);
+    input.value = '';
+    return;
+  }
+
+  // Regular question
+  channel.publish('question', { text });
+  addLog(text, 'question-me', 'You ask');
+  input.value = '';
+  myTurn = false;
+  updateTurnUI(false, false);
+}
+
+// ════════════════════════════════════════════════
+//  SEND ANSWER
+// ════════════════════════════════════════════════
+function sendAnswer(ans) {
+  channel.publish('answer', { text: ans });
+  addLog(`You answered: ${ans}`, 'answer', 'You answered');
+  // Now it's opponent's turn to ask → I wait
+  myTurn = false;
+  updateTurnUI(false, false);
+}
+
+// ════════════════════════════════════════════════
+//  LOG
+// ════════════════════════════════════════════════
+function addLog(text, cls, label) {
+  const log  = document.getElementById('gameLog');
+  const div  = document.createElement('div');
+  div.className = `log-entry ${cls}`;
+  if (label) {
+    const lbl = document.createElement('span');
+    lbl.className = 'log-label';
+    lbl.textContent = label;
+    div.appendChild(lbl);
+  }
+  div.appendChild(document.createTextNode(text));
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ════════════════════════════════════════════════
+//  END GAME
+// ════════════════════════════════════════════════
+function endGame(won, msg) {
+  showScreen('endscreen');
+  const result = document.getElementById('endResult');
+  result.textContent = won ? '✦ You Win! ✦' : '✗ You Lose ✗';
+  result.className   = `end-result ${won ? 'win' : 'lose'}`;
+  document.getElementById('endMsg').textContent = msg;
+  document.getElementById('revealMe').textContent  = myChar  ? myChar.name  : '—';
+  document.getElementById('revealOpp').textContent = oppChar ? oppChar.name : '—';
+  document.getElementById('quoteMe').textContent   = myChar  ? QUOTES[myChar.name]  || '' : '';
+  document.getElementById('quoteOpp').textContent  = oppChar ? QUOTES[oppChar.name] || '' : '';
+}
+</script>
+</body>
+</html>
